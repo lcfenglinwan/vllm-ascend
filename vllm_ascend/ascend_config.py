@@ -462,10 +462,8 @@ class AscendConfig:
                 )
 
         # self.enable_sparse_sfa_c8 = additional_config.get("enable_sparse_sfa_c8", False) and use_sparse
-        # self.enable_sparse_li_c8 = additional_config.get("enable_sparse_li_c8", False) and use_sparse
-        self.c8_enable_reshape_optim = self.vllm_config.attention_config.indexer_kv_dtype in ["fp8", "int8"] and additional_config.get(
-            "c8_enable_reshape_optim", False
-        )
+        self.enable_sparse_li_c8 = vllm_config.attention_config.indexer_kv_dtype in ["fp8", "int8"]
+        self.c8_enable_reshape_optim = self.enable_sparse_li_c8 and self.c8_enable_reshape_optim
         quant_config = getattr(vllm_config, "quant_config", None)
         (
             self._sparse_li_c8_layer_ids,
@@ -666,7 +664,7 @@ class AscendConfig:
         return layer_ids, layer_names
 
     def is_sparse_li_c8_layer(self, layer_name: str | None) -> bool:
-        if self.vllm_config.attention_config.indexer_kv_dtype not in ["fp8", "int8"]:
+        if not self.enable_sparse_li_c8:
             return False
         if not self._sparse_li_c8_layer_filter_enabled:
             return True
