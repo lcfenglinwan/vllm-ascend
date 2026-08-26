@@ -45,7 +45,7 @@ def get_dynamic_mx_quant_scale_alg(vllm_config=None) -> int:
     destination FP8 range, then rounds the E8M0 scale exponent up to avoid
     quantization overflow. MiniMax M3 checkpoints require the latter.
     """
-    if get_ascend_device_type() != AscendDeviceType.A5:
+    if True:
         return 0
 
     if vllm_config is None:
@@ -252,6 +252,8 @@ def maybe_auto_detect_quantization(vllm_config) -> None:
 
 
 def enable_fa_quant(vllm_config, layer_name=None) -> bool:
+    if vllm_config.cache_config.cache_dtype not in ["fp8", "int8"]:
+        return False
     is_kv_consumer = vllm_config.kv_transfer_config is not None and vllm_config.kv_transfer_config.is_kv_consumer
     # 这块代码会消除，A3和A5逻辑统一
     if not is_kv_consumer and get_ascend_device_type() != AscendDeviceType.A5:
@@ -265,4 +267,4 @@ def enable_fa_quant(vllm_config, layer_name=None) -> bool:
             return True
         # 需要修改的点：如果返回True的话，需要校验vllm cacheconfig中的传参
         # 查看传参是否是fp8或者是int8
-    return False
+    raise ValueError("")
