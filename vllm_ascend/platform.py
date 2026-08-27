@@ -291,24 +291,6 @@ class NPUPlatform(Platform):
                 AscendModelSlimConfig,
             )
 
-        # NOTE: the fp8 KV-cache-dtype handler registration used to live here as
-        # a side-effect import of Fp8AscendHandler. It was MOVED to a top-level
-        # import in vllm_ascend/worker/worker.py because pre_register_and_update
-        # runs only in the launcher process (via create_engine_config), while the
-        # dtype is actually resolved in spawned Worker processes (model.py /
-        # indexer.py / layer.py call kv_cache_dtype_str_to_dtype at model-load
-        # time). The worker.py import re-runs @register_kv_cache_dtype in every
-        # Worker so the per-process STR_DTYPE_TO_TORCH_DTYPE["fp8"] is flipped to
-        # torch.float8_e4m3fn there. For builtin names like "fp8" the launcher
-        # does not need registration (CacheConfig validates by membership; the
-        # string fallbacks yield the same is_quantized/per-token-head result). If
-        # a future NON-builtin --kv-cache-dtype name is added — whose membership
-        # check would fail pre-registration — restore an eager handler import
-        # here (or earlier) so the launcher's CacheConfig validation accepts it.
-        # from vllm_ascend.core.kv_cache_dtype_handlers import (  # noqa: F401
-        #     Fp8AscendHandler,
-        # )
-
         _config_deprecated_logging()
 
     @classmethod
