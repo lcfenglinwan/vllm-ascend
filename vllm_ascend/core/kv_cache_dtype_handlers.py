@@ -14,11 +14,45 @@ VllmConfig, via the platform's quant-config registration), the upstream
 """
 
 import torch
-from vllm.config.cache import register_kv_cache_dtype
+
+try:
+    # vllm >= the version that ships the pluggable kv-cache-dtype mechanism
+    # (e.g. the kvquant_27 branch / future main). Importing runs the
+    # @register_kv_cache_dtype decorators below, which append the name to
+    # KV_CACHE_DTYPES and inject the Ascend torch dtype into the per-process
+    # STR_DTYPE_TO_TORCH_DTYPE dict in place.
+    from vllm.config.cache import register_kv_cache_dtype
+except ImportError:
+    # vllm without the pluggable mechanism (e.g. releases/v0.27.1): there is
+    # no register_kv_cache_dtype. Registration is skipped and the fp8 dtype
+    # flip is performed instead by
+    # vllm_ascend/patch/worker/patch_kv_cache_dtype.py (which mutates
+    # STR_DTYPE_TO_TORCH_DTYPE["fp8"] -> torch.float8_e4m3fn directly).
+    # Fp8AscendHandler / Int8AscendHandler are still defined as plain classes
+    # so vllm_ascend/worker/worker.py's `import ... # noqa: F401` keeps
+    # resolving on every vllm version.
+    register_kv_cache_dtype = None
+
 from vllm.v1.kv_cache_interface import KVQuantMode
 
 
-@register_kv_cache_dtype("fp8")
+def _noop_register(name: str):
+    """Identity decorator used when register_kv_cache_dtype is unavailable.
+
+    Keeps the class definitions below unchanged across vllm versions while
+    skipping the actual (impossible) registration on old vllm.
+    """
+
+    def _decorate(cls):
+        return cls
+
+    return _decorate
+
+
+_register = register_kv_cache_dtype if register_kv_cache_dtype is not None else _noop_register
+
+
+@_register("fp8")
 class Fp8AscendHandler:
     """fp8 KV cache stored as ``torch.float8_e4m3fn`` on Ascend.
 
@@ -46,7 +80,7 @@ class Fp8AscendHandler:
         return KVQuantMode.BACKEND
 
 
-@register_kv_cache_dtype("int8")
+@_register("int8")
 class Int8AscendHandler:
     """int KV cache stored as ``torch.int8`` on Ascend.
     """
