@@ -1193,3 +1193,34 @@
 #       Remove this patch once vllm-ascend's bundled PyTorch >= 2.13.0
 #       (which, like upstream, allows eps >= 0 for inference).
 #
+# ** 35. File: platform/patch_indexer_kv_dtype.py**
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   1. `vllm.config.attention.AttentionConfig.indexer_kv_dtype`
+#      `vllm.config.attention.IndexerKVDType`
+#    Why:
+#       DeepSeek V4 (and similar Ascend sparse-attention models) use an `int8`
+#       indexer K cache. Upstream vLLM types `indexer_kv_dtype` as the Literal
+#       `IndexerKVDType = Literal["bf16", "fp8", "mxfp4", "nvfp4"]`, which rejects
+#       `"int8"` at CLI/config validation with a pydantic `literal_error` -- before
+#       the value reaches `kv_cache_dtype_str_to_dtype`, which already supports
+#       `int8` (maps to `torch.int8` upstream, see `worker/patch_kv_cache_dtype.py`).
+#       So `vllm serve ... --attention_config.indexer_kv_dtype int8` fails to start
+#       even though the Ascend indexer kernels (`vllm_ascend/models/deepseek_v4/`)
+#       expect it.
+#    How：
+#       Widen the accepted `Literal` to include `"int8"` and rebuild the pydantic
+#       dataclass schema in place -- without editing the upstream vllm tree. The
+#       field's Literal is held in three places (the module-level `IndexerKVDType`
+#       symbol, the class `__annotations__`, and the stdlib `__dataclass_fields__`
+#       `.type`); all three are updated, then `pydantic.dataclasses.rebuild_dataclass`
+#       is called with `force=True` to regenerate the validator + core schema. Runs
+#       as a platform patch (in `pre_register_and_update`, after the `--attention-config`
+#       argparse args are registered and before `parse_args`), so the per-call
+#       `TypeAdapter(AttentionConfig)` used to validate the dotted-path argument
+#       picks up the widened Literal. Idempotent: no-ops if `int8` is already present.
+#    Related PR (if no, explain why):
+#       No, Ascend-specific int8 indexer cache support not yet upstream.
+#    Future Plan:
+#       Remove this patch once upstream `IndexerKVDType` includes `"int8"` (or once
+#       the indexer kv dtype is pluggable like the fp8 kv-cache-dtype mechanism).
+#
