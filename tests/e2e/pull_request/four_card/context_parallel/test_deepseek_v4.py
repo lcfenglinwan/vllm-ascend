@@ -180,7 +180,6 @@ def test_deepseek_v4_dsa_pcp_dspark() -> None:
             "enable_adaptive_verification": False,
             "draft_sample_method": "greedy",
         },
-        attention_config={"indexer_kv_dtype": "int8"},
         compilation_config={
             "cudagraph_mode": "FULL_DECODE_ONLY",
             # Capture multiples of 1 + num_speculative_tokens for 1 to 4 requests.
