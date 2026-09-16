@@ -145,6 +145,7 @@ def test_dspark_spec_decoding(
         enforce_eager=enforce_eager,
         disable_log_stats=False,
         async_scheduling=True,
+        attention_config={"indexer_kv_dtype": "int8"},
         speculative_config={
             "method": "dspark",
             "num_speculative_tokens": num_speculative_tokens,
